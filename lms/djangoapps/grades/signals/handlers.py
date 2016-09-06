@@ -3,7 +3,6 @@ Grades related signals.
 """
 from logging import getLogger
 
-from django.conf import settings
 from django.dispatch import receiver
 
 from opaque_keys.edx.locator import CourseLocator
@@ -13,6 +12,7 @@ from student.models import user_by_anonymous_id
 from submissions.models import score_set, score_reset
 
 from .signals import SCORE_CHANGED
+from ..config.models import PersistentGradesEnabledFlag
 from ..transformer import GradesTransformer
 from ..new.subsection_grade import SubsectionGradeFactory
 
@@ -112,9 +112,6 @@ def recalculate_subsection_grade_handler(sender, **kwargs):  # pylint: disable=u
        - course_id: Unicode string representing the course
        - usage_id: Unicode string indicating the courseware instance
     """
-    if not settings.FEATURES.get('ENABLE_SUBSECTION_GRADES_SAVED', False):
-        return
-
     try:
         course_id = kwargs['course_id']
         usage_id = kwargs['usage_id']
@@ -130,6 +127,9 @@ def recalculate_subsection_grade_handler(sender, **kwargs):  # pylint: disable=u
         return
 
     course_key = CourseLocator.from_string(course_id)
+    if not PersistentGradesEnabledFlag.feature_enabled(course_id):
+        return
+
     usage_key = UsageKey.from_string(usage_id).replace(course_key=course_key)
     block_structure = get_course_in_cache(course_key)
 
